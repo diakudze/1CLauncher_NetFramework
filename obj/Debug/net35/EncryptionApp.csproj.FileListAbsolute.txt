@@ -6,5 +6,6 @@ D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.GeneratedMSBuildEditorConfig
 D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.AssemblyInfoInputs.cache
 D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.AssemblyInfo.cs
 D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.csproj.CoreCompileInputs.cache
+D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.sourcelink.json
 D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.exe
 D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.pdb
