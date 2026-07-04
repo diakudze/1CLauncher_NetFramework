@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CredentialApp
 {
@@ -86,9 +90,9 @@ namespace CredentialApp
 
         public static bool HasCredentials()
         {
-            string username;
-            string password;
-            return ReadCredentials(out username, out password);
+            string tmpUser;
+            string tmpPass;
+            return ReadCredentials(out tmpUser, out tmpPass);
         }
 
         public static bool DeleteCredentials()
@@ -97,11 +101,121 @@ namespace CredentialApp
         }
     }
 
+    /// <summary>
+    /// Читает настройки из файла Settings.txt.
+    /// Поддерживает JSON и INI-стиль.
+    /// </summary>
+    public static class SettingsReader
+    {
+        private const string SETTINGS_FILE_NAME = "Settings.txt";
+
+        public static string GetSettingsFilePath()
+        {
+            string appDir = AppDomain.CurrentDomain.BaseDirectory;
+            return Path.Combine(appDir, SETTINGS_FILE_NAME);
+        }
+
+        public static Dictionary<string, string> ReadAllSettings()
+        {
+            string path = GetSettingsFilePath();
+
+            if (!File.Exists(path))
+                throw new FileNotFoundException("Файл настроек не найден: " + path);
+
+            string content = File.ReadAllText(path, Encoding.UTF8).Trim();
+
+            if (content.StartsWith("{"))
+                return ParseJson(content);
+            else
+                return ParseIni(content);
+        }
+
+        public static string GetValue(string key)
+        {
+            return GetValue(key, null);
+        }
+
+        public static string GetValue(string key, string defaultValue)
+        {
+            try
+            {
+                Dictionary<string, string> settings = ReadAllSettings();
+                string value;
+                if (settings.TryGetValue(key, out value))
+                    return value;
+            }
+            catch
+            {
+                // игнор
+            }
+            return defaultValue;
+        }
+
+        /// <summary>
+        /// Минимальный JSON-парсер без внешних зависимостей.
+        /// Поддерживает плоский объект { "key": "value", ... }.
+        /// </summary>
+        private static Dictionary<string, string> ParseJson(string json)
+        {
+            Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            // Обычная строка с escape-символами (совместимо с C# 3.0)
+            string pattern = "\"(?<key>[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"\\s*:\\s*\"(?<value>[^\"\\\\]*(?:\\\\.[^\"\\\\]*)*)\"";
+            Regex regex = new Regex(pattern, RegexOptions.Compiled);
+
+            foreach (Match m in regex.Matches(json))
+            {
+                string key = UnescapeJson(m.Groups["key"].Value);
+                string value = UnescapeJson(m.Groups["value"].Value);
+                result[key] = value;
+            }
+
+            return result;
+        }
+
+        private static string UnescapeJson(string s)
+        {
+            return s.Replace("\\\\", "\u0001")
+                    .Replace("\\\"", "\"")
+                    .Replace("\\n", "\n")
+                    .Replace("\\r", "\r")
+                    .Replace("\\t", "\t")
+                    .Replace("\u0001", "\\");
+        }
+
+        private static Dictionary<string, string> ParseIni(string content)
+        {
+            Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string[] lines = content.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (string rawLine in lines)
+            {
+                string line = rawLine.Trim();
+
+                if (string.IsNullOrEmpty(line) || line.StartsWith("#") || line.StartsWith("//"))
+                    continue;
+
+                int eqIndex = line.IndexOf('=');
+                if (eqIndex < 0) continue;
+
+                string key = line.Substring(0, eqIndex).Trim();
+                string value = line.Substring(eqIndex + 1).Trim();
+
+                if (value.Length >= 2 && value.StartsWith("\"") && value.EndsWith("\""))
+                    value = value.Substring(1, value.Length - 2);
+
+                result[key] = value;
+            }
+
+            return result;
+        }
+    }
+
     class Program
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("=== Система учётных данных ===");
+            Console.WriteLine("=== 1C Launcher ===");
             Console.WriteLine();
 
             bool resetMode = HasResetKey(args);
@@ -140,14 +254,12 @@ namespace CredentialApp
             Console.WriteLine();
             Console.WriteLine("--- Текущие учётные данные ---");
             Console.WriteLine("Имя пользователя: " + username);
-            Console.WriteLine("Пароль:           " + MaskPassword(password));
 
             Console.WriteLine();
-            Console.WriteLine("--- Выполнение команды ---");
-            ExecuteCommand(username, password);
+            Console.WriteLine("--- Чтение настроек и запуск приложения ---");
+            ExecuteCommandWithSettings(username, password);
 
-            Console.WriteLine();
-            Console.ReadLine();
+            // Приложение закрывается автоматически после успешного запуска
         }
 
         private static bool HasResetKey(string[] args)
@@ -197,16 +309,118 @@ namespace CredentialApp
             }
 
             password = password1;
-
             return CredentialManager.SaveCredentials(username, password);
         }
 
-        private static void ExecuteCommand(string username, string password)
+        private static void ExecuteCommandWithSettings(string username, string password)
         {
-            Console.WriteLine("[ТЕСТ] Команда выполнена успешно!");
-            Console.WriteLine("[ТЕСТ] Использованы учётные данные:");
-            Console.WriteLine("       - Пользователь: " + username);
-            Console.WriteLine("       - Пароль: " + MaskPassword(password));
+            // 1. Читаем настройки
+            Dictionary<string, string> settings;
+            try
+            {
+                settings = SettingsReader.ReadAllSettings();
+                Console.WriteLine("[OK] Файл настроек прочитан: " + SettingsReader.GetSettingsFilePath());
+                Console.WriteLine("[OK] Загружено параметров: " + settings.Count);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[X] Ошибка чтения настроек: " + ex.Message);
+                Console.WriteLine("[X] Запуск приложения отменён.");
+                Console.WriteLine();
+                Console.WriteLine("Нажмите любую клавишу для выхода...");
+                Console.ReadKey();
+                return;
+            }
+
+            // 2. Получаем путь к 1С
+            string pathToApp;
+            if (!settings.TryGetValue("PATH_TO_APP", out pathToApp))
+            {
+                Console.WriteLine("[X] Параметр PATH_TO_APP не найден в файле настроек!");
+                Console.WriteLine("[X] Запуск приложения отменён.");
+                Console.WriteLine();
+                Console.WriteLine("Нажмите любую клавишу для выхода...");
+                Console.ReadKey();
+                return;
+            }
+
+            if (!File.Exists(pathToApp))
+            {
+                Console.WriteLine("[X] Файл не найден: " + pathToApp);
+                Console.WriteLine("[X] Проверьте параметр PATH_TO_APP в Settings.txt");
+                Console.WriteLine();
+                Console.WriteLine("Нажмите любую клавишу для выхода...");
+                Console.ReadKey();
+                return;
+            }
+
+            Console.WriteLine("[OK] Приложение найдено: " + pathToApp);
+
+            // 3. Получаем режим запуска (MODE)
+            string mode;
+            if (!settings.TryGetValue("MODE", out mode) || string.IsNullOrEmpty(mode))
+            {
+                mode = "ENTERPRISE";
+                Console.WriteLine("[!] Параметр MODE не указан, используется значение по умолчанию: ENTERPRISE");
+            }
+            else
+            {
+                Console.WriteLine("[OK] Режим запуска: " + mode);
+            }
+
+            // 4. Собираем аргументы командной строки для 1С
+            StringBuilder argsBuilder = new StringBuilder();
+
+            string baseConnection;
+            if (settings.TryGetValue("BASE_CONNECTION", out baseConnection)
+                && !string.IsNullOrEmpty(baseConnection))
+            {
+                argsBuilder.Append(mode).Append(" ").Append(baseConnection);
+            }
+            else
+            {
+                argsBuilder.Append(mode);
+            }
+
+            // Добавляем логин и пароль
+            argsBuilder.Append(" /N\"").Append(username).Append("\"");
+            argsBuilder.Append(" /P\"").Append(password).Append("\"");
+
+            // Дополнительные аргументы
+            string additionalArgs;
+            if (settings.TryGetValue("ADDITIONAL_ARGS", out additionalArgs)
+                && !string.IsNullOrEmpty(additionalArgs))
+            {
+                argsBuilder.Append(" ").Append(additionalArgs);
+            }
+
+            string arguments = argsBuilder.ToString().Trim();
+
+            // 5. Логируем (пароль маскируем!)
+            string safeArgs = arguments.Replace(password, new string('*', Math.Max(password.Length, 3)));
+            Console.WriteLine("[>] Запуск: \"" + pathToApp + "\"");
+            Console.WriteLine("[>] Аргументы: " + safeArgs);
+
+            // 6. Запускаем процесс
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo();
+                psi.FileName = pathToApp;
+                psi.Arguments = arguments;
+                psi.UseShellExecute = false;
+                psi.CreateNoWindow = false;
+
+                Process process = Process.Start(psi);
+                Console.WriteLine("[OK] Процесс запущен (PID: " + process.Id + ")");
+                // Успешный запуск - приложение закроется автоматически
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[X] Ошибка запуска: " + ex.Message);
+                Console.WriteLine();
+                Console.WriteLine("Нажмите любую клавишу для выхода...");
+                Console.ReadKey();
+            }
         }
 
         private static string ReadPasswordSecure()
@@ -244,9 +458,7 @@ namespace CredentialApp
                 return "(пусто)";
 
             if (password.Length <= 2)
-            {
                 return new string('*', password.Length);
-            }
 
             return password.Substring(0, 2) + new string('*', password.Length - 2);
         }

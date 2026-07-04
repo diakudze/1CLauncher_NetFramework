@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("EncryptionApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+754bca7466f8690fd38b70340b6fb41153d5e1d1")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+07cfa638f11697cf3a07301350849965fb557c8b")]
 [assembly: System.Reflection.AssemblyProductAttribute("EncryptionApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("EncryptionApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
