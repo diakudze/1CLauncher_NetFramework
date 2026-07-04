@@ -1,0 +1,10 @@
+D:\Dev\C#\1C Launcher\bin\Debug\net35\EncryptionApp.exe.config
+D:\Dev\C#\1C Launcher\bin\Debug\net35\EncryptionApp.exe
+D:\Dev\C#\1C Launcher\bin\Debug\net35\EncryptionApp.pdb
+D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.csproj.AssemblyReference.cache
+D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.GeneratedMSBuildEditorConfig.editorconfig
+D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.AssemblyInfoInputs.cache
+D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.AssemblyInfo.cs
+D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.csproj.CoreCompileInputs.cache
+D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.exe
+D:\Dev\C#\1C Launcher\obj\Debug\net35\EncryptionApp.pdb
